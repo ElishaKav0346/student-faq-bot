@@ -6,14 +6,7 @@ app = Flask(__name__)
 def webhook():
     req = request.get_json()
 
-    # Extract the weekday entity
-    weekday_raw = req.get('queryResult', {}).get('parameters', {}).get('weekday', '')
-    weekday = weekday_raw.strip().lower().replace("on ", "").rstrip("s")  # Normalize input
-
-    print("Received weekday (raw):", weekday_raw)
-    print("Sanitized weekday:", weekday)
-
-    # Class schedule dictionary
+    # The schedule dictionary
     schedule = {
         "monday": "No class on Monday.",
         "tuesday": "INFO2290 from 5–9.",
@@ -24,14 +17,27 @@ def webhook():
         "sunday": "No classes on Sunday."
     }
 
-    # Get the response or fallback
-    response = schedule.get(weekday, "I couldn't find your schedule for that day.")
+    # Extract weekday parameter (may be empty)
+    weekday_raw = req.get('queryResult', {}).get('parameters', {}).get('weekday', '')
+    weekday = weekday_raw.strip().lower().replace("on ", "").rstrip("s")
+
+    # Fallback: if no weekday parameter, try to find weekday from raw user query text
+    if not weekday:
+        query_text = req.get('queryResult', {}).get('queryText', '').lower()
+        for day in schedule.keys():
+            if day in query_text:
+                weekday = day
+                break
+
+    # Prepare response
+    response_text = schedule.get(weekday, "I couldn't find your schedule for that day.")
 
     return jsonify({
-        "fulfillmentText": response
+        "fulfillmentText": response_text
     })
 
 if __name__ == '__main__':
     app.run()
+
 
 
