@@ -1,7 +1,9 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 import re
 
 app = Flask(__name__)
+CORS(app)  # Enable CORS for all routes
 
 # --- Static Data ---
 
@@ -58,33 +60,47 @@ def extract_course(query_text):
 
 # --- Webhook Endpoint ---
 
-@app.route('/webhook', methods=['POST'])
+@app.route('/webhook', methods=['POST', 'OPTIONS'])
 def webhook():
+    if request.method == 'OPTIONS':
+        return '', 200  # Allow preflight requests for CORS
+
     req = request.get_json()
     intent = req.get('queryResult', {}).get('intent', {}).get('displayName', '')
     parameters = req.get('queryResult', {}).get('parameters', {})
     query_text = req.get('queryResult', {}).get('queryText', '')
 
-    # Get fallback values from raw text if entity is missing
+    # Entity fallback from text if not extracted
     weekday = parameters.get('weekday', '').lower().strip() or extract_weekday(query_text)
     course = parameters.get('course_code', '').upper().strip() or extract_course(query_text)
 
     response_text = "I'm not sure how to help with that."
 
     if intent == "ask_schedule":
-        response_text = schedule.get(weekday, f"I couldn't find your schedule for {weekday}.")
+        if weekday:
+            response_text = schedule.get(weekday, f"I couldn't find your schedule for {weekday}.")
+        else:
+            response_text = "Please specify the day of the week you want the schedule for."
 
     elif intent == "ask_contact":
-        response_text = contacts.get(course, f"Sorry, I don't have contact info for {course}.")
+        if course:
+            response_text = contacts.get(course, f"Sorry, I don't have contact info for {course}.")
+        else:
+            response_text = "Please specify the course code (e.g., INFO2290) you'd like contact information for."
 
     elif intent == "ask_deadline":
-        response_text = deadlines.get(course, deadlines["general"] if not course else f"No deadlines found for {course}.")
+        if course:
+            response_text = deadlines.get(course, f"No deadlines found for {course}.")
+        else:
+            response_text = deadlines["general"]
 
     elif intent == "ask_test_schedule":
-        response_text = test_schedules.get(course, test_schedules["next_test"] if not course else f"No test schedule found for {course}.")
+        if course:
+            response_text = test_schedules.get(course, f"No test schedule found for {course}.")
+        else:
+            response_text = test_schedules["next_test"]
 
     return jsonify({ "fulfillmentText": response_text })
 
 if __name__ == '__main__':
     app.run()
-
