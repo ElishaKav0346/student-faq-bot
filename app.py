@@ -63,29 +63,30 @@ def extract_course(query_text):
 @app.route('/webhook', methods=['POST', 'OPTIONS'])
 def webhook():
     if request.method == 'OPTIONS':
-        return '', 200  # CORS preflight support
+        return '', 200  # CORS preflight
 
     req = request.get_json()
     intent = req.get('queryResult', {}).get('intent', {}).get('displayName', '')
     parameters = req.get('queryResult', {}).get('parameters', {})
     query_text = req.get('queryResult', {}).get('queryText', '')
 
+    # Try to get parameters or fallback to text extraction
     weekday = parameters.get('weekday', '').lower().strip() or extract_weekday(query_text)
     course = parameters.get('course_code', '').upper().strip() or extract_course(query_text)
 
     response_text = "I'm not sure how to help with that."
 
-    if intent == "ask_schedule":
+    if intent == "ask_Schedule":
         if weekday:
-            response_text = schedule.get(weekday, f"Sorry, I couldn’t find the schedule for {weekday.capitalize()}.")
+            response_text = schedule.get(weekday, f"I couldn't find your schedule for {weekday}.")
         else:
-            response_text = "Please specify a day of the week to get the class schedule."
+            response_text = "Please specify the day of the week you want the schedule for."
 
     elif intent == "ask_contact":
         if course:
-            response_text = contacts.get(course, f"Sorry, I don’t have contact info for {course}.")
+            response_text = contacts.get(course, f"Sorry, I don't have contact info for {course}.")
         else:
-            response_text = "Please tell me which course (e.g., INFO2290) you need contact info for."
+            response_text = "Please specify the course code (e.g., INFO2290) you'd like contact information for."
 
     elif intent == "ask_deadline":
         if course:
@@ -100,7 +101,6 @@ def webhook():
             response_text = test_schedules["next_test"]
 
     return jsonify({"fulfillmentText": response_text})
-
 
 if __name__ == '__main__':
     app.run()
